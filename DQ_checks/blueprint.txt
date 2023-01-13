@@ -1,0 +1,137 @@
+Tabella in input:
+
+ 
+
+advanced-analytics-278408.data__1st_layer.9891__monitoring_information_and_params à occhio che alcune path potrebbero mancare (vediamo poi insieme di aggiungerle…)
+
+ 
+
+l'informatzione che ti serve è nella colonna:
+
+ 
+
+landing_zone_path (usa il flag in landing_zone --> solo se contiente GCS - se è BQ non serve chiaramente check in GCS - se è "GCS and BQ" serve --> da capire come fare al momento ho una colonna sola...)
+
+ 
+
+altro flag è il campo "is_to_be_monitored" o lo duplichiamo e creiamo uno per la target table e uno per la landing zone o usi questo in generale
+
+ 
+
+Target table à Nome tabella da generare:
+
+ 
+
+advanced-analytics-278408.data__1st_layer.9898__pipelines_target_landing_zone_metadata
+
+ 
+
+per questa preparati uno statement che la genera, vedi quello della 9899 in confluence (cioè prendi spunto per descrizioni, label, ...) à Data Lake - 1st layer data management - Advanced Analytics GCP - Confluence (swarovski.com) vedi à “monitoring on target”
+
+ 
+
+Campi per la tabella target: alcuni saranno calcolati/estratti, altri mergiati dalla 9891
+
+ 
+
+la prima parte la terrei in comune con la 9899:
+
+ 
+
+Info che prendi dalla 9891 (in join)
+
+ 
+
+analysis_date    DATE     NULLABLE                                         
+
+analysis_date_time        DATETIME          NULLABLE                                         
+
+project_id          STRING NULLABLE                                         
+
+dataset_id          STRING NULLABLE                                         
+
+table_id               STRING NULLABLE          
+
+ 
+
+               
+
+complete_table_id         STRING NULLABLE                                         
+
+table_code        STRING NULLABLE                                         
+
+is_to_be_monitored      BOOLEAN           NULLABLE                                         
+
+current_development_status    STRING NULLABLE                                         
+
+current_development_status_id             STRING NULLABLE                                         
+
+source_system_id          STRING NULLABLE                                         
+
+source_system_name   STRING NULLABLE                                         
+
+source_system_ownership_type             STRING NULLABLE                                         
+
+extraction_tool STRING NULLABLE                                         
+
+extraction_script             STRING NULLABLE                                         
+
+extraction_is_scheduled              BOOLEAN           NULLABLE                                         
+
+extraction_schedule_pattern    STRING NULLABLE                                         
+
+landing_zone    STRING NULLABLE                                         
+
+landing_zone_path        STRING NULLABLE                                         
+
+landing_zone_form        STRING NULLABLE                                         
+
+loading_tool      STRING NULLABLE                                         
+
+load_script         STRING NULLABLE                                         
+
+load_is_scheduled         BOOLEAN           NULLABLE                                         
+
+load_schedule_pattern STRING NULLABLE                                         
+
+load_form          STRING NULLABLE          
+
+ 
+
+ 
+
+Altre info da calcolare/estrarre:
+
+ 
+
+prendi le info del bucket:
+
+ 
+
+bucket_created
+bucket_location_type
+…
+
+Usa come nomenclatura bucket_ e il nome del metadato visibile negli header smallcase con underscore invece degli spazi – se non si possono estrarre tutti no prob direi che location, class created, last modified e tipo di access sono importanti
+
+ 
+-- definisci le seguenti colonne 
+file_path_policy_respected (booleano TRUE FALSE --> check che ci siano 4 info bucket / source system / pipeline_code /pipeline version/year (check che il path sia corretto)
+file_path_source_system
+file_path_pipeline_code
+file_path_pipeline_code_distinct_versions (count on subfolders v1 – v2 à 2) -> 2
+file_path_ pipeline_code_distinct_versions_sizes  --> array version/size (e.g. [gs://swarovski-advanced-analytics-data-ingestion-prod/raw/90_sprinklr/9001/v1, 12345],[ gs://swarovski-advanced-analytics-data-ingestion-prod/raw/90_sprinklr/9001/v2, 22345], ...)
+file_path_pipeline_code_checked_version (the one mentioned in the 9891)
+file_number_in_landing_zone_path
+file_size_in_landing_zone_path
+file_oldest_creation_datetime
+file_newest_creation_datetime
+file_name_policy_respected (booleano TRUE FALSE --> check che ci siano 4 info separate da underscore XXXX __ nome pipe __ tipo intervallo temporale coperto __ intervallo temporale coperto (e.g. 0001__transaction__dd__20221022.csv)
+file_name_pipeline_code_info à 0001
+file_name_pipeline_name_info à transactions
+file_name_pipeline_windowframe_info à dd
+file_name_pipeline_history_min_info à 2012-01-01
+file_name_pipeline_history_max_info à 2022-11-18
+files_period_covered  --> array date/size (e.g. [2022-01-02, 12345],[2022-01-03, 22345], ...) aggiungere anche il numero di files presenti per ogni giorno [data,total_size,number of files]
+files_period_missing_between_min_max  --> number of period missing (ad esempio se tra il 1 gennaio e il 31 dicembre hai 360 file con frequenza DAY te ne mancano 5) --> 5 (occhio che questo è basato sul periodo dd – mm – ww, … intanto implementalo magari per dd - mm)
+warning_flag_status --> [GREEN || YELLOW || RED] based on the update frequency (se differenza tra l'ultimo file caricato --> creation date time e il current time di quanto gira la funzione è maggiore di - intervallo in cui dovrebbe essere caricato il file (lo trovi nelal 9891 "DAY") + 10% allora YELLOW so sotto GREEN se sopra oltre il 50% RED)
